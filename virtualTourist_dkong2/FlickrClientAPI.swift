@@ -9,7 +9,7 @@
 import Foundation
 
 class FlickrClientAPI: BaseClientAPI {
-    private let apiUrl = "https://api.flickr.com/services/rest/"
+    let apiUrl = "https://api.flickr.com/services/rest/"
     
     struct LocationConstants {
         static let Lat_Min = -90.0
@@ -43,7 +43,7 @@ class FlickrClientAPI: BaseClientAPI {
     
     static let shared = FlickrClientAPI()
     
-    func BoundingBoxString(latitude: Double, longitude: Double) -> String {
+    func BoundingBoxString(_ latitude: Double, longitude: Double) -> String {
         let bottom_left_lon = max(longitude - LocationConstants.Bounding_Box_Half_Width, LocationConstants.Lon_Min)
         let bottom_left_lat = max(latitude - LocationConstants.Bounding_Box_Half_Height, LocationConstants.Lat_Min)
         let top_right_lon = min(longitude + LocationConstants.Bounding_Box_Half_Height, LocationConstants.Lon_Max)
@@ -52,7 +52,7 @@ class FlickrClientAPI: BaseClientAPI {
         return "\(bottom_left_lon),\(bottom_left_lat),\(top_right_lon),\(top_right_lat)"
     }
     
-    func loadPhotosWithCoordinate(latitude: Double, longitude: Double, page: Int = 1, handler: (photos: [[String : AnyObject]]?, pages: Int, error: String?) -> Void) {
+    func loadPhotosWithCoordinate(_ latitude: Double, longitude: Double, page: Int = 1, handler: @escaping (_ photos: [[String : AnyObject]]?, _ pages: Int, _ error: String?) -> Void) {
         
         let params = [
             FlickrParamsKey.Method: FlickrParamsValue.MethodValue,
@@ -65,32 +65,32 @@ class FlickrClientAPI: BaseClientAPI {
             FlickrParamsKey.Per_Page: "30",
             FlickrParamsKey.Page: String(page),
         ]
-        let request: NSURLRequest = urlRequestWithPath("\(apiUrl)", params: params) as NSURLRequest
+        let request: URLRequest = urlRequestWithPath("\(apiUrl)", params: params as [String : AnyObject]) as URLRequest
         sendURLRequest(request) { (result, error) -> Void in
             guard error == nil else {
-                handler(photos: nil, pages: 0, error: error)
+                handler(nil, 0, error)
                 return
             }
             
             guard let photoData = result!["photos"] as? [String : AnyObject] else {
                 print("Not found [photos] in response")
-                handler(photos: nil, pages: 0, error: "Wrong response")
+                handler(nil, 0, "Wrong response")
                 return
             }
             
             guard let pages = photoData["pages"] as? Int else {
                 print("Not found [photos][pages] in response")
-                handler(photos: nil, pages: 0, error: "Wrong response")
+                handler(nil, 0, "Wrong response")
                 return
             }
             
             guard let results = photoData["photo"] as? [[String : AnyObject]] else {
                 print("Not found [photos][photo] in response")
-                handler(photos: nil, pages: 0, error: "Wrong response")
+                handler(nil, 0, "Wrong response")
                 return
             }
             
-            handler(photos: results, pages: pages, error: nil)
+            handler(results, pages, nil)
         }
     }
 }

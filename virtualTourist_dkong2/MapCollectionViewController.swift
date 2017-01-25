@@ -16,6 +16,9 @@ enum ViewType: String {
     case Restaurant
 }
 
+let kNoRestaurantFound = "No nearby restaurants found."
+let kNoPhotoFound = "No nearby photos found."
+
 class MapCollectionViewController: ViewController, UICollectionViewDelegate, UICollectionViewDataSource, MKMapViewDelegate {
 
     @IBOutlet weak var mapView: MKMapView!
@@ -23,6 +26,7 @@ class MapCollectionViewController: ViewController, UICollectionViewDelegate, UIC
     @IBOutlet weak var newCollectionButton: UIButton!
     @IBOutlet weak var hintLabel: UILabel!
 
+    var mapType: MKMapType!
     var viewType = ViewType.Scenery
     var viewTypeButton = UIBarButtonItem()
     var pin: Pin!
@@ -32,39 +36,23 @@ class MapCollectionViewController: ViewController, UICollectionViewDelegate, UIC
     
     var businesses: [Business]?
     
-    private let appDelegate: AppDelegate = UIApplication.sharedApplication().delegate as! AppDelegate
+    private let appDelegate: AppDelegate = UIApplication.shared.delegate as! AppDelegate
 
-    lazy var fetchedResultsController: NSFetchedResultsController = {
-        switch self.viewType {
-        case .Scenery:
-            if let fetchRequest: NSFetchRequest = NSFetchRequest(entityName: "Photo") {
-                fetchRequest.sortDescriptors = [NSSortDescriptor(key: "id", ascending: true)]
-                fetchRequest.predicate = NSPredicate(format: "pin == %@", self.pin)
-                return NSFetchedResultsController(fetchRequest: fetchRequest, managedObjectContext: self.context, sectionNameKeyPath: nil, cacheName: "Photo")
-            } else {
-                fatalError("Unable to get fetchRequest entity name with Photo!")
-            }
-        case .Restaurant:
-            if let fetchRequest: NSFetchRequest = NSFetchRequest(entityName: "Business") {
-                fetchRequest.sortDescriptors = [NSSortDescriptor(key: "id", ascending: true)]
-                fetchRequest.predicate = NSPredicate(format: "pin == %@", self.pin)
-                return NSFetchedResultsController(fetchRequest: fetchRequest, managedObjectContext: self.context, sectionNameKeyPath: nil, cacheName: "Business")
-            } else {
-                fatalError("Unable to get fetchRequest entity name with Business!")
-            }
-        }
-    } ()
+    lazy var fetchedResultsController: NSFetchedResultsController<Photo> = {
+        let fetchRequest: NSFetchRequest<Photo> = NSFetchRequest<Photo>(entityName: "Photo")
+        fetchRequest.sortDescriptors = [NSSortDescriptor(key: "id", ascending: true)]
+        fetchRequest.predicate = NSPredicate(format: "pin == %@", self.pin)
+        return NSFetchedResultsController(fetchRequest: fetchRequest, managedObjectContext: self.context, sectionNameKeyPath: nil, cacheName: "Photo")
+    }()
     
     override func viewDidLoad() {
         super.viewDidLoad()
         
-        navigationItem.rightBarButtonItem = self.editButtonItem()
-        viewTypeButton = UIBarButtonItem.init(image: UIImage(named: "restaurant"), style: .Done, target: self, action: #selector(MapCollectionViewController.loadRestaurants))
-        navigationItem.rightBarButtonItems = [viewTypeButton, self.editButtonItem()]
+        navigationItem.rightBarButtonItem = self.editButtonItem
+        viewTypeButton = UIBarButtonItem.init(image: UIImage(named: "restaurant"), style: .done, target: self, action: #selector(MapCollectionViewController.loadRestaurants))
+        navigationItem.rightBarButtonItems = [viewTypeButton, self.editButtonItem]
 
-        newCollectionButton.addTarget(self, action: #selector(MapCollectionViewController.loadNewPhotos), forControlEvents: .TouchUpInside)
-        hintLabel.text = "Tap to Delete Photo"
-        hintLabel.hidden = true
+        newCollectionButton.addTarget(self, action: #selector(MapCollectionViewController.loadNewPhotos), for: .touchUpInside)
         
         fetchedResultsController.delegate = self
         
@@ -72,7 +60,7 @@ class MapCollectionViewController: ViewController, UICollectionViewDelegate, UIC
         let items: CGFloat = view.frame.size.width < view.frame.size.height ? 3 : 5
         let space: CGFloat = 5
         let squareLength = (view.frame.size.width - ((items + 1) * space)) / items
-        layout.itemSize = CGSizeMake(squareLength, squareLength)
+        layout.itemSize = CGSize(width: squareLength, height: squareLength)
         layout.minimumLineSpacing = 10.0 - items
         layout.minimumInteritemSpacing = space
         layout.sectionInset = UIEdgeInsets(top: 5, left: 0, bottom: 5, right: 0)
@@ -82,32 +70,175 @@ class MapCollectionViewController: ViewController, UICollectionViewDelegate, UIC
         collectionView.dataSource = self
         
         mapView.addAnnotation(pin)
-        mapView.userInteractionEnabled = true
+        mapView.isUserInteractionEnabled = true
+        mapView.mapType = mapType
         mapView.delegate = self
 
         mapView.setRegion(MKCoordinateRegion(center: pin.coordinate, span: MKCoordinateSpan(latitudeDelta: 0.05, longitudeDelta: 0.05)), animated: true)
     }
     
-    func mapView(mapView: MKMapView, viewForAnnotation annotation: MKAnnotation) -> MKAnnotationView? {
-        let pinView = mapView.dequeueReusableAnnotationViewWithIdentifier("pin") as? MKPinAnnotationView
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        checkLocalPhotos()
+    }
+    
+    func mapView(_ mapView: MKMapView, viewFor annotation: MKAnnotation) -> MKAnnotationView? {
+        let pinView = mapView.dequeueReusableAnnotationView(withIdentifier: "pin") as? MKPinAnnotationView
             ?? MKPinAnnotationView(annotation: annotation, reuseIdentifier: "pin")
         if annotation.coordinate.latitude == pin.coordinate.latitude && annotation.coordinate.longitude == pin.coordinate.longitude {
-            pinView.pinTintColor = UIColor.redColor()
+            pinView.pinTintColor = UIColor.red
         } else {
-            pinView.pinTintColor = UIColor.greenColor()
+            pinView.pinTintColor = UIColor.green
         }
         
         return pinView
     }
     
     func showAllBusinessPins() -> [Business] {
-        return try! (context.executeFetchRequest(NSFetchRequest(entityName: "Business")) as! [Business]) ?? []
+        let fetchRequest = NSFetchRequest<NSFetchRequestResult>(entityName: "Business")
+        fetchRequest.predicate = NSPredicate(format: "pin == %@", self.pin)
+        return try! (context.fetch(fetchRequest) as! [Business]) 
     }
     
-    override func viewWillAppear(animated: Bool) {
-        super.viewWillAppear(animated)
+    func loadNewPhotos() {
+        if Reachability.isConnectedToNetwork() != .notReachable {
+            newCollectionButton.isEnabled = false
+            pin.deleteExistingPhotos(context) { _ in }
+            pin.flickr?.loadNewPhotosAndAddToPin(context, handler: { (error: String?) in
+                if error == "HTTP Errors" {
+                    super.showConnectionAlertView(error)
+                }
+                self.hintLabel.isHidden = true
+                self.newCollectionButton.isEnabled = true
+                self.context.saveToManagedObjectContext()
+            })
+        } else {
+            super.showConnectionAlertView()
+            hintLabel.text = kNoPhotoFound
+        }
+    }
+
+    func loadRestaurants() {
+        switch viewType {
+        case .Scenery:
+            viewType = .Restaurant
+            viewTypeButton.image = UIImage(named: "scenery")
+            navigationItem.rightBarButtonItems = [viewTypeButton]
+            newCollectionButton.setTitle("Click Photo to see details", for: .normal)
+            newCollectionButton.isEnabled = false
+            
+            if Reachability.isConnectedToNetwork() != .notReachable {
+                self.pin.deleteExistingBusinesses(context) { _ in }
+                if let sharedYelpClient = appDelegate.sharedYelpClient {
+                    sharedYelpClient.searchWithLat(Double(pin!.latitude), long: Double(pin!.longitude), term: "restaurant", limit: 20, offset: 0, sort: .Distance) { (businesses: AnyObject?, error: String?) -> Void in
+                        DispatchQueue.main.async{
+                            guard error == nil else {
+                                super.showConnectionAlertView(error)
+                                return
+                            }
+                            self.calculateMapViewRegion(businesses: businesses)
+                            self.saveToCoreDataAndUpdateUI() {}
+                        }
+                    }
+                } else {
+                    // If appDelegate.sharedYelpClient is nil, do OAuth first, then send search request
+                    let yelp = YelpClientAPI()
+                    
+                    yelp.authWithAppID("JGAl29kTR_1GNRPnj8XZzA", secret: "SFHjUh3LX2ORlOoHIgIHhCeS1UIHnYZvjxBvMx5R3kptLt1LzXM44qptycMfksIP", completionHandler: {(client: YelpClientAPI?, error: String?) -> Void in
+                        guard error == nil else {
+                            if error == "HTTP Errors" {
+                                super.showConnectionAlertView(error)
+                            }
+                            return
+                        }
+                        self.appDelegate.yelpClient = client!
+                        
+                        if (client == nil) {
+                            print("Authentication failed: \(error)")
+                        }
+                        
+                        self.appDelegate.yelpClient!.searchWithLat(Double(self.pin!.latitude), long: Double(self.pin!.longitude), term: "restaurant", limit: 20, offset: 0, sort: .Distance) { (businesses: AnyObject?, error: String?) -> Void in
+                            DispatchQueue.main.async {
+                                guard error == nil else {
+                                    super.showConnectionAlertView(error)
+                                    return
+                                }
+                                
+                                self.calculateMapViewRegion(businesses: businesses)
+                                self.saveToCoreDataAndUpdateUI() {
+                                }
+                            }
+                        }
+                    })
+                }
+                
+            } else {
+                super.showConnectionAlertView()
+                businesses = showAllBusinessPins()
+                
+                if businesses?.count != 0 {
+                    calculateMapViewRegion(businesses: businesses as AnyObject?)
+                    saveToCoreDataAndUpdateUI() { }
+                } else {
+                    hintLabel.isHidden = false
+                    hintLabel.text = kNoRestaurantFound
+                    saveToCoreDataAndUpdateUI() { }
+                }
+            }
+            
+        case .Restaurant:
+            viewType = .Scenery
+            viewTypeButton.image = UIImage(named: "restaurant")
+            navigationItem.rightBarButtonItems = [viewTypeButton, self.editButtonItem]
+            newCollectionButton.setTitle("New Collection", for: .normal)
+            newCollectionButton.isEnabled = true
+            hintLabel.text = ""
+            
+            checkLocalPhotos()
+            saveToCoreDataAndUpdateUI() { }
+        }
+    }
+    
+    func calculateMapViewRegion(businesses: AnyObject? = nil) {
+        var max_long = self.pin!.longitude
+        var min_long = self.pin!.longitude
+        var max_lat = self.pin!.latitude
+        var min_lat = self.pin!.latitude
+        
+        if let temp = businesses as? [Business] {
+            for item in temp {
+                max_lat = item.latitude > max_lat ? item.latitude : max_lat
+                min_lat = item.latitude < min_lat ? item.latitude : min_lat
+                max_long = item.longitude > max_long ? item.longitude : max_long
+                min_long = item.longitude < min_long ? item.longitude : min_long
+            }
+        } else if let dict = businesses as? [NSDictionary] {
+            for businessItem in dict {
+                if businessItem is [String: AnyObject] {
+                    let item = Business(dictionary: (businessItem as! [String: AnyObject]), pin: self.pin!, context: self.context)
+                    max_lat = item.latitude > max_lat ? item.latitude : max_lat
+                    min_lat = item.latitude < min_lat ? item.latitude : min_lat
+                    max_long = item.longitude > max_long ? item.longitude : max_long
+                    min_long = item.longitude < min_long ? item.longitude : min_long
+                }
+            }
+        }
+
+        let center_long = (max_long + min_long)/2
+        let center_lat = (max_lat + min_lat)/2
+        
+        let delta_lat = abs(max_lat - min_lat)
+        let delta_long = abs(max_long - min_long)
+        
+        let coord = CLLocationCoordinate2D(latitude: center_lat, longitude: center_long)
+        let span = MKCoordinateSpan(latitudeDelta: delta_lat, longitudeDelta: delta_long)
+        self.mapView.setRegion(MKCoordinateRegion.init(center: coord, span: span), animated: true)
+    }
+    
+    func checkLocalPhotos() {
         do {
             try fetchedResultsController.performFetch()
+            
             if fetchedResultsController.fetchedObjects!.count == 0 {
                 loadNewPhotos()
             }
@@ -116,138 +247,82 @@ class MapCollectionViewController: ViewController, UICollectionViewDelegate, UIC
         }
     }
     
-    func loadNewPhotos() {
-        newCollectionButton.enabled = false
-        pin.deleteExistingPhotos(context) { _ in
-        }
-        pin.flickr?.loadNewPhotosAndAddToPin(context, handler: { _ in
-            self.newCollectionButton.enabled = true
-            self.context.saveToManagedObjectContext()
-        })
-    }
-
-    func loadRestaurants() {
-        switch viewType {
-        case .Scenery:
-            viewType = .Restaurant
-            viewTypeButton.image = UIImage(named: "scenery")
-            self.pin.deleteExistingBusinesses(context) { _ in }
-            navigationItem.rightBarButtonItems = [viewTypeButton]
-            newCollectionButton.setTitle("Click Photo to see details", forState: .Normal)
-            newCollectionButton.enabled = false
-            
-            var max_long = self.pin!.longitude
-            var min_long = self.pin!.longitude
-            var max_lat = self.pin!.latitude
-            var min_lat = self.pin!.latitude
-            
-            appDelegate.sharedYelpClient?.searchWithLat(Double(pin!.latitude), long: Double(pin!.longitude), term: "restaurant", limit: 20, offset: 0, sort: .Distance) { (businesses: AnyObject?, error: String?) -> Void in
-                dispatch_async(dispatch_get_main_queue(), {
-                    guard error == nil else {
-                        print("\(error)")
-                        return
-                    }
-                    
-                    if let b = businesses as? [NSDictionary] {
-                        for businessItem in b {
-                            if businessItem is [String: AnyObject] {
-                                let item = Business(dictionary: (businessItem as! [String: AnyObject]), pin: self.pin!, context: self.context)
-                                max_lat = item.latitude > max_lat ? item.latitude : max_lat
-                                min_lat = item.latitude < min_lat ? item.latitude : min_lat
-                                max_long = item.longitude > max_long ? item.longitude : max_long
-                                min_long = item.longitude < min_long ? item.longitude : min_long
-                            }
-                        }
-                        let center_long = (max_long + min_long)/2
-                        let center_lat = (max_lat + min_lat)/2
-                        
-                        let delta_lat = abs(max_lat - min_lat)
-                        let delta_long = abs(max_long - min_long)
-                        
-                        if self.viewType == .Restaurant {
-                            let coord = CLLocationCoordinate2D(latitude: center_lat, longitude: center_long)
-                            let span = MKCoordinateSpan(latitudeDelta: delta_lat, longitudeDelta: delta_long)
-                            self.mapView.setRegion(MKCoordinateRegion.init(center: coord, span: span), animated: true)
-                        }
-                        
-                    }
-                    self.hardProcessingWithString() {
-                        self.reloadMapViewAndCollectionView()
-                    }
-                })
-            }
-            
-        case .Restaurant:
-            viewType = .Scenery
-            viewTypeButton.image = UIImage(named: "restaurant")
-            navigationItem.rightBarButtonItems = [viewTypeButton, self.editButtonItem()]
-            newCollectionButton.titleLabel!.text = "New Collection"
-            newCollectionButton.enabled = true
-
-            self.hardProcessingWithString() {
-                self.reloadMapViewAndCollectionView()
-            }
-        }
-    }
-    
-    func hardProcessingWithString(completion: (result: Void) -> Void) {
+    func saveToCoreDataAndUpdateUI(completion: (_ result: Void) -> Void) {
         self.context.saveToManagedObjectContext()
-        completion(result: self.reloadMapViewAndCollectionView())
+        completion(self.reloadMapViewAndCollectionView())
     }
     
     private func reloadMapViewAndCollectionView() {
-
-        let fetchRequest = NSFetchRequest(entityName: "Business")
-        fetchRequest.predicate = NSPredicate(format: "pin == %@", self.pin)
-        businesses = try! (context.executeFetchRequest(fetchRequest) as! [Business]) ?? []
-
+        businesses = showAllBusinessPins()
         collectionView.reloadData()
 
+
+        
         if viewType == .Restaurant {
-            mapView.addAnnotations(showAllBusinessPins())
-        } else {
-            if let businessesRestaurant: [Business] = showAllBusinessPins() {
-                mapView.removeAnnotations(businessesRestaurant)
+            mapView.addAnnotations(businesses!)
+            if businesses!.count == 0 {
+                hintLabel.isHidden = false
+                hintLabel.text = kNoRestaurantFound
+            } else {
+                hintLabel.isHidden = true
             }
+        } else {
+            mapView.removeAnnotations(showAllBusinessPins())
             mapView.setRegion(MKCoordinateRegion(center: pin.coordinate, span: MKCoordinateSpan(latitudeDelta: 0.05, longitudeDelta: 0.05)), animated: true)
+            if let fetchedResults = fetchedResultsController.fetchedObjects {
+                if fetchedResults.count == 0 {
+                    hintLabel.isHidden = false
+                    hintLabel.text = kNoPhotoFound
+                } else {
+                    hintLabel.isHidden = true
+                }
+            }
+
         }
     }
     
-    func numberOfSectionsInCollectionView(collectionView: UICollectionView) -> Int {
+    private func numberOfSectionsInCollectionView(collectionView: UICollectionView) -> Int {
         if viewType == .Restaurant {
             return 1
         }
         return fetchedResultsController.sections?.count ?? 0
     }
 
-    func collectionView(collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
+    func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
         if viewType == .Restaurant {
-            return businesses!.count
+            if let businesses = businesses {
+                return businesses.count
+            } else {
+                return 0
+            }
         }
         return fetchedResultsController.sections![section].numberOfObjects
     }
 
-    func collectionView(collectionView: UICollectionView, cellForItemAtIndexPath indexPath: NSIndexPath) -> UICollectionViewCell {
+    func collectionView(_ collectionView: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
         if viewType == .Restaurant {
-            if  let business: Business = businesses![indexPath.item] {
-                let cell = collectionView.dequeueReusableCellWithReuseIdentifier("PhotoCollectionViewCell", forIndexPath: indexPath) as! PhotoCollectionViewCell
-                cell.business = business
+            if businesses != nil {
+                if  let business: Business = businesses?[indexPath.item] {
+                    let cell = collectionView.dequeueReusableCell(withReuseIdentifier: "PhotoCollectionViewCell", for: indexPath as IndexPath) as! PhotoCollectionViewCell
+                    cell.business = business
+                    return cell
+                }
+            } else {
+                let cell = collectionView.dequeueReusableCell(withReuseIdentifier: "PhotoCollectionViewCell", for: indexPath as IndexPath) as! PhotoCollectionViewCell
                 return cell
             }
         } else {
-            if let photo = fetchedResultsController.objectAtIndexPath(indexPath) as? Photo {
-                let cell = collectionView.dequeueReusableCellWithReuseIdentifier("PhotoCollectionViewCell", forIndexPath: indexPath) as! PhotoCollectionViewCell
-                cell.photo = photo
-                return cell
-            } else {
-                fatalError("result object is not Photo")
-            }
+            let photo: Photo = fetchedResultsController.object(at: indexPath)
+            let cell = collectionView.dequeueReusableCell(withReuseIdentifier: "PhotoCollectionViewCell", for: indexPath as IndexPath) as! PhotoCollectionViewCell
+            cell.photo = photo
+            return cell
         }
+        fatalError("Return an unknown cell. Should never goes here!")
     }
 
-    func collectionView(collectionView: UICollectionView, didSelectItemAtIndexPath indexPath: NSIndexPath) {
-        if editing {
-            context.deleteObject(fetchedResultsController.objectAtIndexPath(indexPath) as! Photo)
+    func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
+        if isEditing {
+            context.delete(fetchedResultsController.object(at: indexPath))
             context.saveToManagedObjectContext()
             return
         }
@@ -255,56 +330,61 @@ class MapCollectionViewController: ViewController, UICollectionViewDelegate, UIC
         if viewType == .Restaurant {
             let selectedBusiness = businesses![indexPath.item]
             if let name = selectedBusiness.name {
-                let rating = selectedBusiness.rating ?? 0.0
+                let rating = selectedBusiness.rating 
                 let phone = selectedBusiness.phone ?? ""
                 let alert = UIAlertController(title: "\(name)", message: "rating: \(rating) \n Phone: \(phone)",
-                                              preferredStyle: .Alert)
+                                              preferredStyle: .alert)
                 if !phone.isEmpty {
-                    alert.addAction(UIAlertAction(title: "Call Restaurant", style: .Default, handler: { action in
-                        if let phoneURL = NSURL(string: "tel://\(phone)") where UIApplication.sharedApplication().canOpenURL(phoneURL) {
-                            UIApplication.sharedApplication().openURL(phoneURL, options: [:], completionHandler: nil)
+                    alert.addAction(UIAlertAction(title: "Call Restaurant", style: .default, handler: { action in
+                        if let phoneURL = NSURL(string: "tel://\(phone)"), UIApplication.shared.canOpenURL(phoneURL as URL) {
+                            UIApplication.shared.open(phoneURL as URL, options: [:], completionHandler: nil)
                         }
                     }))
                 }
-                alert.addAction(UIAlertAction(title: "View on Yelp", style: .Default, handler: { action in
-                    if let urlString = selectedBusiness.url, let yelpUrl = NSURL(string: urlString) where UIApplication.sharedApplication().canOpenURL(yelpUrl) {
-                        UIApplication.sharedApplication().openURL(yelpUrl, options: [:], completionHandler: nil)
+                alert.addAction(UIAlertAction(title: "View on Yelp", style: .default, handler: { action in
+                    if let urlString = selectedBusiness.url, let yelpUrl = NSURL(string: urlString), UIApplication.shared.canOpenURL(yelpUrl as URL) {
+                        UIApplication.shared.open(yelpUrl as URL, options: [:], completionHandler: nil)
                     }
                 }))
-                alert.addAction(UIAlertAction(title: "Dismiss", style: .Cancel, handler: nil))
-                self.presentViewController(alert, animated: true, completion: nil)
+                alert.addAction(UIAlertAction(title: "Dismiss", style: .cancel, handler: nil))
+                self.present(alert, animated: true, completion: nil)
             }
         }
     }
     
-    override func setEditing(editing: Bool, animated: Bool) {
+    override func setEditing(_ editing: Bool, animated: Bool) {
         super.setEditing(editing, animated: animated)
-        hintLabel.hidden = !editing
+        if viewType == .Scenery {
+            newCollectionButton.setTitle(editing ? "Click Photo to delete" : "new Collection", for: .normal)
+        } else {
+            newCollectionButton.setTitle(editing ? "Click Photo to see details" : "new Collection", for: .normal)
+        }
+        newCollectionButton.isEnabled = !editing
     }
 
 }
 
 extension MapCollectionViewController: NSFetchedResultsControllerDelegate {
-    func controllerWillChangeContent(controller: NSFetchedResultsController) {
+    func controllerWillChangeContent(_ controller: NSFetchedResultsController<NSFetchRequestResult>) {
         insertedIndexPaths = []
         deletedIndexPaths = []
     }
     
-    func controller(controller: NSFetchedResultsController, didChangeObject anObject: AnyObject, atIndexPath indexPath: NSIndexPath?, forChangeType type: NSFetchedResultsChangeType, newIndexPath: NSIndexPath?) {
+    func controller(_ controller: NSFetchedResultsController<NSFetchRequestResult>, didChange anObject: Any, at indexPath: IndexPath?, for type: NSFetchedResultsChangeType, newIndexPath: IndexPath?) {
         switch type {
-        case .Insert:
-            insertedIndexPaths.append(newIndexPath!)
-        case .Delete:
-            deletedIndexPaths.append(indexPath!)
+        case .insert:
+            insertedIndexPaths.append(newIndexPath! as NSIndexPath)
+        case .delete:
+            deletedIndexPaths.append(indexPath! as NSIndexPath)
         default:
             return
         }
     }
 
-    func controllerDidChangeContent(controller: NSFetchedResultsController) {
+    func controllerDidChangeContent(_ controller: NSFetchedResultsController<NSFetchRequestResult>) {
         collectionView.performBatchUpdates({
-            _ = self.insertedIndexPaths.map({ self.collectionView.insertItemsAtIndexPaths([$0]) })
-            _ = self.deletedIndexPaths.map({ self.collectionView.deleteItemsAtIndexPaths([$0]) })
+            _ = self.insertedIndexPaths.map({ self.collectionView.insertItems(at: [$0 as IndexPath]) })
+            _ = self.deletedIndexPaths.map({ self.collectionView.deleteItems(at: [$0 as IndexPath]) })
         }, completion: nil)
     }
 }

@@ -10,17 +10,17 @@ import Foundation
 import CoreData
 
 @objc(Flickr)
-public class Flickr: NSManagedObject {
+open class Flickr: NSManagedObject {
     
     var isLoading = false
     
-    override init(entity: NSEntityDescription, insertIntoManagedObjectContext context: NSManagedObjectContext?) {
-        super.init(entity: entity, insertIntoManagedObjectContext: context)
+    override init(entity: NSEntityDescription, insertInto context: NSManagedObjectContext?) {
+        super.init(entity: entity, insertInto: context)
     }
     
     init(nextPage: Int32 = 1, totalPages: Int32 = 1, context: NSManagedObjectContext) {
-        if let entity = NSEntityDescription.entityForName("Flickr", inManagedObjectContext: context) {
-            super.init(entity: entity, insertIntoManagedObjectContext: context)
+        if let entity = NSEntityDescription.entity(forEntityName: "Flickr", in: context) {
+            super.init(entity: entity, insertInto: context)
             self.nextPage = nextPage
             self.totalPages = totalPages
         } else {
@@ -38,15 +38,15 @@ public class Flickr: NSManagedObject {
     
     
     
-    func loadNewPhotosAndAddToPin(context: NSManagedObjectContext, handler: (error: String?) -> Void) {
+    func loadNewPhotosAndAddToPin(_ context: NSManagedObjectContext, handler: @escaping (_ error: String?) -> Void) {
         if isLoading {
-            return handler(error: "Photos are Loading ...")
+            return handler("Photos are Loading ...")
         }
         isLoading = true
         FlickrClientAPI.shared.loadPhotosWithCoordinate(Double(pin!.latitude), longitude: Double(pin!.longitude), page: Int(nextPage)) { (photos, pages, error) -> Void in
-            dispatch_async(dispatch_get_main_queue(), {
+            DispatchQueue.main.async(execute: {
                 guard error == nil else {
-                    return handler(error: error)
+                    return handler(error)
                 }
                 
                 // add to core data
@@ -58,7 +58,7 @@ public class Flickr: NSManagedObject {
                 self.totalPages = Int32(min(10, pages))
                 self.nextPage = Int32(self.totalPages < (self.nextPage + 1) ? 1 : self.nextPage + 1)
                 self.isLoading = false
-                return handler(error: nil)
+                return handler(nil)
             })
         }
     }

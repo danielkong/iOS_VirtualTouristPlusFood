@@ -12,14 +12,14 @@ import CoreData
 
 extension Business {
 
-    @nonobjc public override class func fetchRequest() -> NSFetchRequest {
+    @nonobjc open override class func fetchRequest() -> NSFetchRequest<NSFetchRequestResult> {
         return NSFetchRequest(entityName: "Business");
     }
 
     @NSManaged public var name: String?
     @NSManaged public var address: String?
     @NSManaged public var imageURL: String?
-    @NSManaged public var imageData: NSData?
+    @NSManaged public var imageData: Data?
     @NSManaged public var categories: String?
     @NSManaged public var distance: String?
     @NSManaged public var latitude: Double

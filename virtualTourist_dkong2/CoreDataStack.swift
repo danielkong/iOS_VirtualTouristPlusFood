@@ -19,34 +19,34 @@ class CoreDataStack {
         return Static.instance!
     }
     
-    private let model: NSManagedObjectModel
+    fileprivate let model: NSManagedObjectModel
     internal let coordinator: NSPersistentStoreCoordinator
-    private let modelURL: NSURL
-    internal let dbURL: NSURL
+    fileprivate let modelURL: URL
+    internal let dbURL: URL
     let context: NSManagedObjectContext
 
     init?(modelName: String) {
-        guard let modelURL = NSBundle.mainBundle().URLForResource(modelName, withExtension: "momd") else {
+        guard let modelURL = Bundle.main.url(forResource: modelName, withExtension: "momd") else {
             print("Unable found \(modelName) in the main bundle")
             return nil
         }
         self.modelURL = modelURL
         
-        guard let model = NSManagedObjectModel(contentsOfURL: modelURL) else {
+        guard let model = NSManagedObjectModel(contentsOf: modelURL) else {
             print("unable to create a model with url \(modelURL)")
             return nil
         }
         self.model = model
 
-        context = NSManagedObjectContext(concurrencyType: .MainQueueConcurrencyType)
+        context = NSManagedObjectContext(concurrencyType: .mainQueueConcurrencyType)
         coordinator = NSPersistentStoreCoordinator(managedObjectModel: model)
         context.persistentStoreCoordinator = coordinator
-        let fm = NSFileManager.defaultManager()
-        guard let docUrl = fm.URLsForDirectory(.DocumentDirectory, inDomains: .UserDomainMask).first else {
+        let fm = FileManager.default
+        guard let docUrl = fm.urls(for: .documentDirectory, in: .userDomainMask).first else {
             print("Unable to get the documents folder")
             return nil
         }
-        self.dbURL = docUrl.URLByAppendingPathComponent("model.sqlite")!
+        self.dbURL = docUrl.appendingPathComponent("model.sqlite")
         do {
             try addStoreCoordinator(NSSQLiteStoreType, configuration: nil, storeURL: dbURL, options: [NSInferMappingModelAutomaticallyOption: true, NSMigratePersistentStoresAutomaticallyOption: true])
         } catch {
@@ -54,15 +54,15 @@ class CoreDataStack {
         }
     }
         
-    func addStoreCoordinator(storeType: String, configuration: String?, storeURL: NSURL, options : [NSObject:AnyObject]?) throws {
-        try coordinator.addPersistentStoreWithType(NSSQLiteStoreType, configuration: nil, URL: dbURL, options: nil)
+    func addStoreCoordinator(_ storeType: String, configuration: String?, storeURL: URL, options : [AnyHashable: Any]?) throws {
+        try coordinator.addPersistentStore(ofType: NSSQLiteStoreType, configurationName: nil, at: dbURL, options: nil)
     }
 }
 
 internal extension CoreDataStack  {
         
     func dropAllData() throws {
-        try coordinator.destroyPersistentStoreAtURL(dbURL, withType: NSSQLiteStoreType, options: nil)
+        try coordinator.destroyPersistentStore(at: dbURL, ofType: NSSQLiteStoreType, options: nil)
         try addStoreCoordinator(NSSQLiteStoreType, configuration: nil, storeURL: dbURL, options: nil)
     }
 }
@@ -75,7 +75,7 @@ extension CoreDataStack {
         }
     }
     
-    func autoSave(delayInSeconds : Int) {
+    func autoSave(_ delayInSeconds : Int) {
         if delayInSeconds > 0 {
             do {
                 try saveContext()
@@ -83,9 +83,7 @@ extension CoreDataStack {
                 print("Could not save during autosaving")
             }
             let delayInNanoSeconds = UInt64(delayInSeconds) * NSEC_PER_SEC
-            let dispatchTime: dispatch_time_t = dispatch_time(DISPATCH_TIME_NOW, Int64(0.2 * Double(NSEC_PER_SEC)))
-            let time = Double(dispatchTime) + Double(Int64(delayInNanoSeconds)) / Double(NSEC_PER_SEC)
-            dispatch_after(UInt64(time), dispatch_get_main_queue()) {
+            DispatchQueue.main.asyncAfter(deadline: .now() + Double(Int64(0.2 * Double(NSEC_PER_SEC))) / Double(NSEC_PER_SEC) + Double(delayInNanoSeconds)/Double(NSEC_PER_SEC)) {
                 self.autoSave(delayInSeconds)
             }
         }

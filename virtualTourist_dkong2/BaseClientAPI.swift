@@ -17,25 +17,25 @@ enum APIMethod: String {
 
 class BaseClientAPI: NSObject {
     var headers: [String: String] = [String: String]()
-    var session: NSURLSession {
-        return NSURLSession.sharedSession()
+    var session: URLSession {
+        return URLSession.shared
     }
     
-    func urlRequestWithPath(path: String, method: APIMethod? = .Get, params: [String: AnyObject], body: AnyObject? = nil) -> NSMutableURLRequest {
-        let components = NSURLComponents()
-        components.queryItems = params.map { NSURLQueryItem(name: $0, value: String($1)) }
+    func urlRequestWithPath(_ path: String, method: APIMethod? = .Get, params: [String: AnyObject], body: AnyObject? = nil) -> NSMutableURLRequest {
+        var components = URLComponents()
+        components.queryItems = params.map { URLQueryItem(name: $0, value: String(describing: $1)) }
         let paramsString = components.percentEncodedQuery ?? ""
         
         let urlString = path + "?" + paramsString
-        if let url = NSURL(string: urlString) {
-            let req = NSMutableURLRequest(URL: url)
-            req.HTTPMethod = (method?.rawValue)!
+        if let url = URL(string: urlString) {
+            let req = NSMutableURLRequest(url: url)
+            req.httpMethod = (method?.rawValue)!
             for (header, value) in headers {
                 req.addValue(value, forHTTPHeaderField: header)
             }
             if body != nil {
                 do {
-                    req.HTTPBody = try! NSJSONSerialization.dataWithJSONObject(body!, options: [])
+                    req.httpBody = try! JSONSerialization.data(withJSONObject: body!, options: [])
                 }
             }
             return req
@@ -44,23 +44,32 @@ class BaseClientAPI: NSObject {
         }
     }
     
-    func sendURLRequest(request: NSURLRequest, handler: (result: AnyObject?, error: String?) -> Void) {
-        let task = session.dataTaskWithRequest(request, completionHandler: {(data, response, error) in
+    func sendURLRequest(_ request: URLRequest, handler: @escaping (_ result: AnyObject?, _ error: String?) -> Void) {
+        let task = session.dataTask(with: request, completionHandler: {(data, response, error) in
             guard error == nil else {
-                handler(result: nil, error: "Connection error")
+                var errorString = ""
+                
+                if error!._code < 400 && error!._code > 299 {
+                    errorString = "HTTP Errors"
+                } else if error!._code == -1001 {
+                    errorString = "Connection timed out"
+                } else if error!._code < 200 && error!._code >= 120 {
+                    errorString = "SOCK Errors"
+                }
+                handler(nil, errorString)
                 return
             }
             
-            guard let status = (response as? NSHTTPURLResponse)?.statusCode where status != 403 else {
-                handler(result: nil, error: "Username or password is incorrect")
+            guard let status = (response as? HTTPURLResponse)?.statusCode, status != 403 else {
+                handler(nil, "Username or password is incorrect")
                 return
             }
             
             if let data = data {
-                let json = try! NSJSONSerialization.JSONObjectWithData(data, options: .AllowFragments) as! [String: AnyObject]
-                handler(result: json, error: nil)
+                let json = try! JSONSerialization.jsonObject(with: data, options: .allowFragments) as! [String: AnyObject]
+                handler(json as AnyObject?, nil)
             } else {
-                handler(result: nil, error: "Connection error with wrong data")
+                handler(nil, "Connection error with wrong data")
                 return
             }            
         })

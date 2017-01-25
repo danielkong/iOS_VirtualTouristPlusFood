@@ -11,9 +11,9 @@ import CoreData
 import MapKit
 
 @objc(Pin)
-public class Pin: NSManagedObject, MKAnnotation {
+open class Pin: NSManagedObject, MKAnnotation {
     
-    public var coordinate: CLLocationCoordinate2D {
+    open var coordinate: CLLocationCoordinate2D {
         set {
             latitude = Double(newValue.latitude)
             longitude = Double(newValue.longitude)
@@ -24,13 +24,13 @@ public class Pin: NSManagedObject, MKAnnotation {
         }
     }
     
-    override init(entity: NSEntityDescription, insertIntoManagedObjectContext context: NSManagedObjectContext?) {
-        super.init(entity: entity, insertIntoManagedObjectContext: context)
+    override init(entity: NSEntityDescription, insertInto context: NSManagedObjectContext?) {
+        super.init(entity: entity, insertInto: context)
     }
     
     init(latitude: Double, longitude: Double, context: NSManagedObjectContext) {
-        if let entity = NSEntityDescription.entityForName("Pin", inManagedObjectContext: context) {
-            super.init(entity: entity, insertIntoManagedObjectContext: context)
+        if let entity = NSEntityDescription.entity(forEntityName: "Pin", in: context) {
+            super.init(entity: entity, insertInto: context)
             self.latitude = Double(latitude)
             self.longitude = Double(longitude)
             self.flickr = Flickr(nextPage: 1, totalPages: 1, context: context)
@@ -40,31 +40,31 @@ public class Pin: NSManagedObject, MKAnnotation {
         }
     }
     
-    func deleteExistingPhotos(context: NSManagedObjectContext, handler: (error: String?) -> Void) {
-        let request = NSFetchRequest(entityName: "Photo")
+    func deleteExistingPhotos(_ context: NSManagedObjectContext, handler: (_ error: String?) -> Void) {
+        let request = NSFetchRequest<NSFetchRequestResult>(entityName: "Photo")
         request.predicate = NSPredicate(format: "pin == %@", self)
         
         do {
-            let photos = try context.executeFetchRequest(request) as! [Photo]
-            _ = photos.map({ context.deleteObject($0) })
+            let photos = try context.fetch(request) as! [Photo]
+            _ = photos.map({ context.delete($0) })
         } catch {
             fatalError("Get wrong fetch results!")
         }
         
-        handler(error: nil)
+        handler(nil)
     }
     
-    func deleteExistingBusinesses(context: NSManagedObjectContext, handler: (error: String?) -> Void) {
-        let request = NSFetchRequest(entityName: "Business")
+    func deleteExistingBusinesses(_ context: NSManagedObjectContext, handler: (_ error: String?) -> Void) {
+        let request = NSFetchRequest<NSFetchRequestResult>(entityName: "Business")
         request.predicate = NSPredicate(format: "pin == %@", self)
         
         do {
-            let photos = try context.executeFetchRequest(request) as! [Business]
-            _ = photos.map({ context.deleteObject($0) })
+            let photos = try context.fetch(request) as! [Business]
+            _ = photos.map({ context.delete($0) })
         } catch {
             fatalError("Get wrong fetch results!")
         }
         
-        handler(error: nil)
+        handler(nil)
     }
 }

@@ -28,8 +28,8 @@ class YelpClientAPI: BaseClientAPI {
         static let radius = "radius"
     }
     
-    private let yelpApiUrl = "https://api.yelp.com"
-    private let apiUrl = "https://api.yelp.com/v3/businesses/search"
+    fileprivate let yelpApiUrl = "https://api.yelp.com"
+    fileprivate let apiUrl = "https://api.yelp.com/v3/businesses/search"
     var accessToken: String? = nil
     
     override init() {
@@ -42,29 +42,29 @@ class YelpClientAPI: BaseClientAPI {
     }
 
     // OAuth
-    func authRequestWithAppID(appId: String, secret: String) -> NSMutableURLRequest {
-        let urlComponents = NSURLComponents()
+    func authRequestWithAppID(_ appId: String, secret: String) -> NSMutableURLRequest {
+        var urlComponents = URLComponents()
         urlComponents.scheme = "https"
         urlComponents.host = "api.yelp.com"
         urlComponents.path = "/oauth2/token"
         
         let body = String(format:"grant_type=client_credentials&client_id=\(appId)&client_secret=\(secret)")
-        let bodyData = body.dataUsingEncoding(NSUTF8StringEncoding)
+        let bodyData = body.data(using: String.Encoding.utf8)
         
-        let request = NSMutableURLRequest(URL: urlComponents.URL!)
-        request.HTTPMethod = "POST"
-        request.HTTPBody = bodyData
-        request.setValue(String(bodyData!.length), forHTTPHeaderField: "Content-Length")
+        let request = NSMutableURLRequest(url: urlComponents.url!)
+        request.httpMethod = "POST"
+        request.httpBody = bodyData
+        request.setValue(String(bodyData!.count), forHTTPHeaderField: "Content-Length")
         request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
         
         return request
     }
     
-    func authWithAppID(appID: String, secret: String, completionHandler:(yclient: YelpClientAPI?, error: String?) -> Void) {
+    func authWithAppID(_ appID: String, secret: String, completionHandler:@escaping (_ yclient: YelpClientAPI?, _ error: String?) -> Void) {
         let request = authRequestWithAppID(appID, secret: secret)
-        sendURLRequest(request) { (result, error) -> Void in
+        sendURLRequest(request as URLRequest) { (result, error) -> Void in
             guard error == nil else {
-                completionHandler(yclient: nil, error: error)
+                completionHandler(nil, error)
                 return
             }
             
@@ -74,37 +74,37 @@ class YelpClientAPI: BaseClientAPI {
             }
             
             let client = YelpClientAPI(token: token)
-            completionHandler(yclient: client, error: nil)
+            completionHandler(client, nil)
         }
     }
     
-    func searchWithLat(lat: Double, long: Double, term: String, limit: Int, offset:Int, sort: YelpSortType, completionHandler:(businesses: AnyObject?, error: String?) -> Void) {
+    func searchWithLat(_ lat: Double, long: Double, term: String, limit: Int, offset:Int, sort: YelpSortType, completionHandler:@escaping (_ businesses: AnyObject?, _ error: String?) -> Void) {
         let params: [String: AnyObject] = [
-            YelpParamsKey.Latitude: lat,
-            YelpParamsKey.Longitude: long,
-            YelpParamsKey.term: term,
-            YelpParamsKey.limit: limit,
-            YelpParamsKey.offset: offset,
-            YelpParamsKey.sort_by: sort.rawValue,
+            YelpParamsKey.Latitude: lat as AnyObject,
+            YelpParamsKey.Longitude: long as AnyObject,
+            YelpParamsKey.term: term as AnyObject,
+            YelpParamsKey.limit: limit as AnyObject,
+            YelpParamsKey.offset: offset as AnyObject,
+            YelpParamsKey.sort_by: sort.rawValue as AnyObject,
             ]
         
         if let token = self.accessToken {
             self.headers = ["Authorization": "Bearer \(token)"]
         }
-        let request: NSURLRequest = urlRequestWithPath("\(apiUrl)", params: params) as NSURLRequest
+        let request: URLRequest = urlRequestWithPath("\(apiUrl)", params: params) as URLRequest
         sendURLRequest(request) { (result, error) -> Void in
             guard error == nil else {
-                completionHandler(businesses: nil, error: error)
+                completionHandler(nil, error)
                 return
             }
             
             guard let businessData = result!["businesses"] as? [NSDictionary] else {
                 print("Not found [businesses] in response")
-                completionHandler(businesses: nil, error: "Wrong response")
+                completionHandler(nil, "Wrong response")
                 return
             }
 
-            completionHandler(businesses: businessData, error: nil)
+            completionHandler(businessData as AnyObject?, nil)
         }
 
 

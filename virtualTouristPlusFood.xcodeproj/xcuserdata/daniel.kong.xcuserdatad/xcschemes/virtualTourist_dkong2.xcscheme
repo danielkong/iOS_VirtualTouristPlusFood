@@ -15,9 +15,9 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "4564F5401DE2C13700B312BE"
-               BuildableName = "virtualTourist_dkong2.app"
-               BlueprintName = "virtualTourist_dkong2"
-               ReferencedContainer = "container:virtualTourist_dkong2.xcodeproj">
+               BuildableName = "virtualTouristPlusFood.app"
+               BlueprintName = "virtualTouristPlusFood"
+               ReferencedContainer = "container:virtualTouristPlusFood.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
@@ -33,9 +33,9 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "4564F5541DE2C13700B312BE"
-               BuildableName = "virtualTourist_dkong2Tests.xctest"
-               BlueprintName = "virtualTourist_dkong2Tests"
-               ReferencedContainer = "container:virtualTourist_dkong2.xcodeproj">
+               BuildableName = "virtualTouristPlusFoodTests.xctest"
+               BlueprintName = "virtualTouristPlusFoodTests"
+               ReferencedContainer = "container:virtualTouristPlusFood.xcodeproj">
             </BuildableReference>
          </TestableReference>
          <TestableReference
@@ -43,9 +43,9 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "4564F55F1DE2C13700B312BE"
-               BuildableName = "virtualTourist_dkong2UITests.xctest"
-               BlueprintName = "virtualTourist_dkong2UITests"
-               ReferencedContainer = "container:virtualTourist_dkong2.xcodeproj">
+               BuildableName = "virtualTouristPlusFoodUITests.xctest"
+               BlueprintName = "virtualTouristPlusFoodUITests"
+               ReferencedContainer = "container:virtualTouristPlusFood.xcodeproj">
             </BuildableReference>
          </TestableReference>
       </Testables>
@@ -53,9 +53,9 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "4564F5401DE2C13700B312BE"
-            BuildableName = "virtualTourist_dkong2.app"
-            BlueprintName = "virtualTourist_dkong2"
-            ReferencedContainer = "container:virtualTourist_dkong2.xcodeproj">
+            BuildableName = "virtualTouristPlusFood.app"
+            BlueprintName = "virtualTouristPlusFood"
+            ReferencedContainer = "container:virtualTouristPlusFood.xcodeproj">
          </BuildableReference>
       </MacroExpansion>
       <AdditionalOptions>
@@ -76,9 +76,9 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "4564F5401DE2C13700B312BE"
-            BuildableName = "virtualTourist_dkong2.app"
-            BlueprintName = "virtualTourist_dkong2"
-            ReferencedContainer = "container:virtualTourist_dkong2.xcodeproj">
+            BuildableName = "virtualTouristPlusFood.app"
+            BlueprintName = "virtualTouristPlusFood"
+            ReferencedContainer = "container:virtualTouristPlusFood.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
       <AdditionalOptions>
@@ -95,9 +95,9 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "4564F5401DE2C13700B312BE"
-            BuildableName = "virtualTourist_dkong2.app"
-            BlueprintName = "virtualTourist_dkong2"
-            ReferencedContainer = "container:virtualTourist_dkong2.xcodeproj">
+            BuildableName = "virtualTouristPlusFood.app"
+            BlueprintName = "virtualTouristPlusFood"
+            ReferencedContainer = "container:virtualTouristPlusFood.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </ProfileAction>

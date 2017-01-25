@@ -21,14 +21,14 @@ class PhotoCollectionViewCell: UICollectionViewCell {
             } else {
                 indicatorView.stopAnimating()
             }
-            indicatorView.hidden = !loading
+            indicatorView.isHidden = !loading
         }
     }
     
     var photo: Photo? = nil {
         didSet {
             if let data = oldValue?.photoImage {
-                self.imageView.image = UIImage(data: data)
+                self.imageView.image = UIImage(data: data as Data)
             } else {
                 oldValue?.cancelRequestLoadingImage()
                 loading = true
@@ -43,18 +43,17 @@ class PhotoCollectionViewCell: UICollectionViewCell {
     var business: Business? = nil {
         didSet {
             if let businessImageData = business?.imageData {
-                self.imageView.image = UIImage(data: businessImageData)
+                self.imageView.image = UIImage(data: businessImageData as Data)
             } else {
                 loading = true
                 business?.startLoadingImage({ (image, error) -> Void in
-                    if (error == "Business download error") {
+                    if (error == "Business download error" || error == "Business no image URL") {
                         self.loading = false
-                        self.imageView.backgroundColor = UIColor.redColor()
+                        self.imageView.image = UIImage(named: "default_restaurant_512.png")
                     } else {
                         self.loading = error != nil
                         self.imageView.image = image
                     }
-                    
                 })
             }
         }

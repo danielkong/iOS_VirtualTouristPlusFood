@@ -12,7 +12,7 @@ import CoreData
 
 extension Flickr {
 
-    @nonobjc public override class func fetchRequest() -> NSFetchRequest {
+    @nonobjc open override class func fetchRequest() -> NSFetchRequest<NSFetchRequestResult> {
         return NSFetchRequest(entityName: "Flickr");
     }
 

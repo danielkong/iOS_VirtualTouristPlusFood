@@ -11,21 +11,21 @@ import CoreData
 import UIKit
 
 @objc(Photo)
-public class Photo: NSManagedObject {
+open class Photo: NSManagedObject {
     
     lazy var filePath: String = {
-        return NSFileManager.defaultManager().URLsForDirectory(.DocumentDirectory, inDomains: .UserDomainMask).first!.URLByAppendingPathComponent("image-\(self.id).jpg")!.path!
+        return FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!.appendingPathComponent("image-\(self.id).jpg").path
     } ()
 
-    var task: NSURLSessionTask? = nil
+    var task: URLSessionTask? = nil
 
-    override init(entity: NSEntityDescription, insertIntoManagedObjectContext context: NSManagedObjectContext?) {
-        super.init(entity: entity, insertIntoManagedObjectContext: context)
+    override init(entity: NSEntityDescription, insertInto context: NSManagedObjectContext?) {
+        super.init(entity: entity, insertInto: context)
     }
     
     init(id: String, url: String, pin: Pin, context: NSManagedObjectContext) {
-        if let entity = NSEntityDescription.entityForName("Photo", inManagedObjectContext: context) {
-            super.init(entity: entity, insertIntoManagedObjectContext: context)
+        if let entity = NSEntityDescription.entity(forEntityName: "Photo", in: context) {
+            super.init(entity: entity, insertInto: context)
             
             self.id = id
             self.url = url
@@ -38,8 +38,8 @@ public class Photo: NSManagedObject {
     
     // create image url with pin
     init(flickrDictionary: [String: AnyObject], pin: Pin, context: NSManagedObjectContext) {
-        if let entity = NSEntityDescription.entityForName("Photo", inManagedObjectContext: context) {
-            super.init(entity: entity, insertIntoManagedObjectContext: context)
+        if let entity = NSEntityDescription.entity(forEntityName: "Photo", in: context) {
+            super.init(entity: entity, insertInto: context)
             
             self.id = flickrDictionary["id"] as? String
             self.url = flickrDictionary[FlickrClientAPI.FlickrParamsValue.URL_M] as? String
@@ -50,23 +50,23 @@ public class Photo: NSManagedObject {
         }
     }
     
-    func startLoadingImage(handler: (image : UIImage?, error: String?) -> Void) {
+    func startLoadingImage(_ handler: @escaping (_ image : UIImage?, _ error: String?) -> Void) {
         cancelRequestLoadingImage()
-        if let urlString = url, urlFormart = NSURL(string: urlString) {
-            task = NSURLSession.sharedSession().dataTaskWithRequest(NSURLRequest(URL: urlFormart)) { (data, response, downloadError) in
-                dispatch_async(dispatch_get_main_queue(), {
+        if let urlString = url, let urlFormart = URL(string: urlString) {
+            task = URLSession.shared.dataTask(with: URLRequest(url: urlFormart), completionHandler: { (data, response, downloadError) in
+                DispatchQueue.main.async(execute: {
                     guard downloadError == nil else {
-                        return handler(image: nil, error: "Photo download error")
+                        return handler(nil, "Photo download error")
                     }
                     
                     guard let data = data, let image = UIImage(data: data) else {
-                        return handler(image: nil, error: "Photo data not correct")
+                        return handler(nil, "Photo data not correct")
                     }
 
                     self.photoImage = UIImageJPEGRepresentation(image, 0.0)
-                    return handler(image: image, error: nil)
+                    return handler(image, nil)
                 })
-            }
+            }) 
             task?.resume()
         }
     }

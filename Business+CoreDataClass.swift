@@ -12,9 +12,9 @@ import UIKit
 import MapKit
 
 @objc(Business)
-public class Business: NSManagedObject, MKAnnotation {
+open class Business: NSManagedObject, MKAnnotation {
     
-    public var coordinate: CLLocationCoordinate2D {
+    open var coordinate: CLLocationCoordinate2D {
         set {
             latitude = Double(newValue.latitude)
             longitude = Double(newValue.longitude)
@@ -26,19 +26,19 @@ public class Business: NSManagedObject, MKAnnotation {
     }
     
     lazy var filePath: String = {
-        return NSFileManager.defaultManager().URLsForDirectory(.DocumentDirectory, inDomains: .UserDomainMask).first!.URLByAppendingPathComponent("image-\(self.id).jpg")!.path!
+        return FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!.appendingPathComponent("image-\(self.id).jpg").path
     } ()
     
-    var task: NSURLSessionTask? = nil
+    var task: URLSessionTask? = nil
     
-    override init(entity: NSEntityDescription, insertIntoManagedObjectContext context: NSManagedObjectContext?) {
-        super.init(entity: entity, insertIntoManagedObjectContext: context)
+    override init(entity: NSEntityDescription, insertInto context: NSManagedObjectContext?) {
+        super.init(entity: entity, insertInto: context)
     }
 
     
     init(id: String, url: String, pin: Pin, context: NSManagedObjectContext) {
-        if let entity = NSEntityDescription.entityForName("Business", inManagedObjectContext: context) {
-            super.init(entity: entity, insertIntoManagedObjectContext: context)
+        if let entity = NSEntityDescription.entity(forEntityName: "Business", in: context) {
+            super.init(entity: entity, insertInto: context)
             
             self.id = id
             self.url = url
@@ -51,8 +51,8 @@ public class Business: NSManagedObject, MKAnnotation {
     
     // create image url with pin
     init(dictionary: [String: AnyObject], pin: Pin, context: NSManagedObjectContext) {
-        if let entity = NSEntityDescription.entityForName("Business", inManagedObjectContext: context) {
-            super.init(entity: entity, insertIntoManagedObjectContext: context)
+        if let entity = NSEntityDescription.entity(forEntityName: "Business", in: context) {
+            super.init(entity: entity, insertInto: context)
             
             self.name = dictionary["name"] as? String
             self.address = dictionary["address"] as? String
@@ -63,9 +63,13 @@ public class Business: NSManagedObject, MKAnnotation {
             if let coordinates: AnyObject = dictionary["coordinates"] {
                 if coordinates is NSDictionary {
                     let coor = coordinates as! NSDictionary
-                    self.latitude = (coor["latitude"] as? Double)!
-                    self.longitude = (coor["longitude"] as? Double)!
-
+                    if let lati = coor["latitude"] as? Double, let long = coor["longitude"] as? Double {
+                        self.latitude = lati
+                        self.longitude = long
+                    } else {
+                        self.latitude = pin.latitude
+                        self.longitude = pin.longitude
+                    }
                 }
             }
 
@@ -82,23 +86,25 @@ public class Business: NSManagedObject, MKAnnotation {
         }
     }
     
-    func startLoadingImage(handler: (image : UIImage?, error: String?) -> Void) {
-        if let urlString = imageURL, urlFormat = NSURL(string: urlString) {
-            task = NSURLSession.sharedSession().dataTaskWithRequest(NSURLRequest(URL: urlFormat)) { (data, response, downloadError) in
-                dispatch_sync(dispatch_get_main_queue(), {
+    func startLoadingImage(_ handler: @escaping (_ image : UIImage?, _ error: String?) -> Void) {
+        if let urlString = imageURL, let urlFormat = URL(string: urlString) {
+            task = URLSession.shared.dataTask(with: URLRequest(url: urlFormat), completionHandler: { (data, response, downloadError) in
+                DispatchQueue.main.sync(execute: {
                     guard downloadError == nil else {
-                        return handler(image: nil, error: "Business download error")
+                        return handler(nil, "Business download error")
                     }
                     
                     guard let data = data, let image = UIImage(data: data) else {
-                        return handler(image: nil, error: "Business data not correct")
+                        return handler(nil, "Business data not correct")
                     }
                     
                     self.imageData = UIImageJPEGRepresentation(image, 0.0)
-                    return handler(image: image, error: nil)
+                    return handler(image, nil)
                 })
-            }
+            }) 
             task?.resume()
+        } else {
+            return handler(nil, "Business no image URL")
         }
     }
 }
