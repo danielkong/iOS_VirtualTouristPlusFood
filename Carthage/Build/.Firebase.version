@@ -1,0 +1,18 @@
+{
+  "iOS" : [
+    {
+      "hash" : "d4c8b399a0a7472e2bde552605b196de3e4aae4e4ddf68a99d74a2b1c82f3cd7",
+      "name" : "Firebase"
+    }
+  ],
+  "commitish" : "4.0.4",
+  "watchOS" : [
+
+  ],
+  "tvOS" : [
+
+  ],
+  "Mac" : [
+
+  ]
+}

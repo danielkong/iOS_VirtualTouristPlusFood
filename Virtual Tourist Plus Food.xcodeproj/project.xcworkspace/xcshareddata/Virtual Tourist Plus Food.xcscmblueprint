@@ -1,0 +1,30 @@
+{
+  "DVTSourceControlWorkspaceBlueprintPrimaryRemoteRepositoryKey" : "D57A989F553AFDFECC3BE3DFE8D409458195E923",
+  "DVTSourceControlWorkspaceBlueprintWorkingCopyRepositoryLocationsKey" : {
+
+  },
+  "DVTSourceControlWorkspaceBlueprintWorkingCopyStatesKey" : {
+    "A7A0E8AC852D960DF94C1CB03FBD5A801665D816" : 9223372036854775807,
+    "D57A989F553AFDFECC3BE3DFE8D409458195E923" : 9223372036854775807
+  },
+  "DVTSourceControlWorkspaceBlueprintIdentifierKey" : "5FFC8DA6-5AD1-4045-B72E-47972A9FA517",
+  "DVTSourceControlWorkspaceBlueprintWorkingCopyPathsKey" : {
+    "A7A0E8AC852D960DF94C1CB03FBD5A801665D816" : "",
+    "D57A989F553AFDFECC3BE3DFE8D409458195E923" : "virtualTourist_dkong2\/"
+  },
+  "DVTSourceControlWorkspaceBlueprintNameKey" : "Virtual Tourist Plus Food",
+  "DVTSourceControlWorkspaceBlueprintVersion" : 204,
+  "DVTSourceControlWorkspaceBlueprintRelativePathToProjectKey" : "Virtual Tourist Plus Food.xcodeproj",
+  "DVTSourceControlWorkspaceBlueprintRemoteRepositoriesKey" : [
+    {
+      "DVTSourceControlWorkspaceBlueprintRemoteRepositoryURLKey" : "https:\/\/github.com\/danielkong\/iOS_Swift_2016",
+      "DVTSourceControlWorkspaceBlueprintRemoteRepositorySystemKey" : "com.apple.dt.Xcode.sourcecontrol.Git",
+      "DVTSourceControlWorkspaceBlueprintRemoteRepositoryIdentifierKey" : "A7A0E8AC852D960DF94C1CB03FBD5A801665D816"
+    },
+    {
+      "DVTSourceControlWorkspaceBlueprintRemoteRepositoryURLKey" : "https:\/\/github.com\/danielkong\/iOS_VirtualTouristPlusFood.git",
+      "DVTSourceControlWorkspaceBlueprintRemoteRepositorySystemKey" : "com.apple.dt.Xcode.sourcecontrol.Git",
+      "DVTSourceControlWorkspaceBlueprintRemoteRepositoryIdentifierKey" : "D57A989F553AFDFECC3BE3DFE8D409458195E923"
+    }
+  ]
+}

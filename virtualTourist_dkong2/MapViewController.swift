@@ -10,6 +10,7 @@ import Foundation
 import MapKit
 import UIKit
 import CoreData
+import Firebase
 
 class MapViewController: ViewController, MKMapViewDelegate {
 
@@ -56,6 +57,7 @@ class MapViewController: ViewController, MKMapViewDelegate {
     
     func segementChanged() {
         let selectedIndex = segment.selectedSegmentIndex
+        var mapType = MapType.Standard
         switch selectedIndex {
         case 0:
             segment.tintColor = UIColor(red: 0, green: 122.0/255.0, blue: 1, alpha: 1)
@@ -68,10 +70,18 @@ class MapViewController: ViewController, MKMapViewDelegate {
             mapView.mapType = .hybrid
         default: break
         }
+        mapType = MapType(rawValue: selectedIndex)!
+
+        Analytics.logEvent(AnalyticsEventSelectContent, parameters: [
+            AnalyticsParameterItemID: "\(FirebaseEvents.ContentType.kMapType)-\(selectedIndex)" as NSObject,
+            AnalyticsParameterItemName: mapType.toString as NSObject,
+            AnalyticsParameterContentType: FirebaseEvents.ContentType.kMapType as NSObject
+        ])
+        
     }
     
     func showAllPins() -> [Pin] {
-        return try! (context.fetch(NSFetchRequest(entityName: "Pin")) ) 
+        return try! (context.fetch(NSFetchRequest(entityName: "Pin")) )
     }
     
     func mapView(_ mapView: MKMapView, viewFor annotation: MKAnnotation) -> MKAnnotationView? {

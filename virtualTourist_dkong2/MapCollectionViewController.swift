@@ -10,11 +10,7 @@ import Foundation
 import MapKit
 import UIKit
 import CoreData
-
-enum ViewType: String {
-    case Scenery
-    case Restaurant
-}
+import Firebase
 
 let kNoRestaurantFound = "No nearby restaurants found."
 let kNoPhotoFound = "No nearby photos found."
@@ -49,7 +45,7 @@ class MapCollectionViewController: ViewController, UICollectionViewDelegate, UIC
         super.viewDidLoad()
         
         navigationItem.rightBarButtonItem = self.editButtonItem
-        viewTypeButton = UIBarButtonItem.init(image: UIImage(named: "restaurant"), style: .done, target: self, action: #selector(MapCollectionViewController.loadRestaurants))
+        viewTypeButton = UIBarButtonItem.init(image: UIImage(named: "restaurant"), style: .done, target: self, action: #selector(MapCollectionViewController.tapViewTypeButton))
         navigationItem.rightBarButtonItems = [viewTypeButton, self.editButtonItem]
 
         newCollectionButton.addTarget(self, action: #selector(MapCollectionViewController.loadNewPhotos), for: .touchUpInside)
@@ -103,6 +99,7 @@ class MapCollectionViewController: ViewController, UICollectionViewDelegate, UIC
     func loadNewPhotos() {
         if Reachability.isConnectedToNetwork() != .notReachable {
             newCollectionButton.isEnabled = false
+            viewTypeButton.isEnabled = false
             pin.deleteExistingPhotos(context) { _ in }
             pin.flickr?.loadNewPhotosAndAddToPin(context, handler: { (error: String?) in
                 if error == "HTTP Errors" {
@@ -111,6 +108,8 @@ class MapCollectionViewController: ViewController, UICollectionViewDelegate, UIC
                 self.hintLabel.isHidden = true
                 self.newCollectionButton.isEnabled = true
                 self.context.saveToManagedObjectContext()
+                self.viewTypeButton.isEnabled = true
+
             })
         } else {
             super.showConnectionAlertView()
@@ -118,7 +117,12 @@ class MapCollectionViewController: ViewController, UICollectionViewDelegate, UIC
         }
     }
 
-    func loadRestaurants() {
+    func tapViewTypeButton() {
+        Analytics.logEvent(AnalyticsEventSelectContent, parameters: [
+            AnalyticsParameterItemID: "\(FirebaseEvents.ContentType.kViewType)-\(viewType.rawValue)" as NSObject,
+            AnalyticsParameterItemName: viewType.toString as NSObject,
+            AnalyticsParameterContentType: FirebaseEvents.ContentType.kViewType as NSObject
+        ])
         switch viewType {
         case .Scenery:
             viewType = .Restaurant
@@ -197,6 +201,7 @@ class MapCollectionViewController: ViewController, UICollectionViewDelegate, UIC
             checkLocalPhotos()
             saveToCoreDataAndUpdateUI() { }
         }
+        
     }
     
     func calculateMapViewRegion(businesses: AnyObject? = nil) {
@@ -324,13 +329,25 @@ class MapCollectionViewController: ViewController, UICollectionViewDelegate, UIC
         if isEditing {
             context.delete(fetchedResultsController.object(at: indexPath))
             context.saveToManagedObjectContext()
+            
+            Analytics.logEvent(AnalyticsEventSelectContent, parameters: [
+                AnalyticsParameterItemID: "" as NSObject,
+                AnalyticsParameterItemName: FirebaseEvents.ContentType.kDelete as NSObject,
+                AnalyticsParameterContentType: FirebaseEvents.ContentType.kDelete as NSObject
+                ])
             return
+        } else {
+            Analytics.logEvent(AnalyticsEventSelectContent, parameters: [
+                AnalyticsParameterItemID: "" as NSObject,
+                AnalyticsParameterItemName: FirebaseEvents.UnImplementation.kOpenImage as NSObject,
+                AnalyticsParameterContentType: FirebaseEvents.ContentType.kUnImplementation as NSObject
+                ])
         }
         
         if viewType == .Restaurant {
             let selectedBusiness = businesses![indexPath.item]
             if let name = selectedBusiness.name {
-                let rating = selectedBusiness.rating 
+                let rating = selectedBusiness.rating
                 let phone = selectedBusiness.phone ?? ""
                 let alert = UIAlertController(title: "\(name)", message: "rating: \(rating) \n Phone: \(phone)",
                                               preferredStyle: .alert)
@@ -343,11 +360,21 @@ class MapCollectionViewController: ViewController, UICollectionViewDelegate, UIC
                 }
                 alert.addAction(UIAlertAction(title: "View on Yelp", style: .default, handler: { action in
                     if let urlString = selectedBusiness.url, let yelpUrl = NSURL(string: urlString), UIApplication.shared.canOpenURL(yelpUrl as URL) {
+                        Analytics.logEvent(AnalyticsEventSelectContent, parameters: [
+                            AnalyticsParameterItemID: "\(phone)" as NSObject,
+                            AnalyticsParameterItemName: name as NSObject,
+                            AnalyticsParameterContentType: FirebaseEvents.ContentType.kToYelp as NSObject
+                            ])
                         UIApplication.shared.open(yelpUrl as URL, options: [:], completionHandler: nil)
                     }
                 }))
                 alert.addAction(UIAlertAction(title: "Dismiss", style: .cancel, handler: nil))
-                self.present(alert, animated: true, completion: nil)
+                present(alert, animated: true, completion: nil)
+                Analytics.logEvent(AnalyticsEventSelectContent, parameters: [
+                    AnalyticsParameterItemID: "\(phone)" as NSObject,
+                    AnalyticsParameterItemName: name as NSObject,
+                    AnalyticsParameterContentType: FirebaseEvents.ContentType.kRestaurant as NSObject
+                    ])
             }
         }
     }
